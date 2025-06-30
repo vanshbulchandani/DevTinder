@@ -1,29 +1,20 @@
 const express = require("express");
 const connectDB = require("./config/database");
-const user = require("./modles/user");
+
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
-app.get("/signup", async (req, res) => {
-  console.log(req.body);
-  //   const userdata = new user({
-  //     firstName: "vansh",
-  //     lastName: "bulchandani",
-  //     emailId: "vansh21112002@gmail.com",
-  //     password: "vansh123",
-  //   });
-  const userdata = new user(req.body);
+const authRouter = require("./routes/auth");
+const profileRouter = require("./routes/profile");
+const requestRouter = require("./routes/request");
 
-  try {
-    await userdata.save();
-    res.send("user created");
-  } catch (err) {
-    console.log(err);
-    res.status(500).send("error creating user");
-  }
-});
-
+app.use("/", authRouter);
+app.use("/", profileRouter);
+app.use("/", requestRouter);
 app.get("/user", async (req, res) => {
   const userEmail = req.body.emailId;
   try {
@@ -60,13 +51,25 @@ app.delete("/user", async (req, res) => {
   }
 });
 
-app.patch("/user", async (req, res) => {
-  const userId = req.body.userId; // Corrected
+app.patch("/user/:userId", async (req, res) => {
+  const userId = req.params?.userId; // Corrected
   const data = req.body;
 
   try {
+    const ALLOWED_UPDATES = ["photoUrl", "about", "gender", "age", "skills"];
+    const isUpdateAllowed = Object.keys(data).every((k) =>
+      ALLOWED_UPDATES.includes(k)
+    );
+    if (!isUpdateAllowed) {
+      throw new Error("Update not allowed");
+    }
+    if (data?.skills && data.skills.length > 10) {
+      throw new Error("Skills cannot be more than 10");
+    }
+
     const updatedUser = await user.findByIdAndUpdate(userId, data, {
       new: true,
+      runValidators: true,
     });
     console.log(updatedUser);
     res.send("user updated");
@@ -84,5 +87,5 @@ connectDB()
     });
   })
   .catch((err) => {
-    console.log("connection fsiled");
+    console.log("connection failed", err);
   });
