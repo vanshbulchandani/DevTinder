@@ -8,16 +8,19 @@ const userSchema = new mongoose.Schema(
     firstName: {
       type: String,
       required: true,
+      trim: true,
     },
     lastName: {
       type: String,
       required: true,
+      trim: true,
     },
     emailId: {
       type: String,
       required: true,
       unique: true,
       trim: true,
+      lowercase: true,
       validate(value) {
         if (!validator.isEmail(value)) {
           throw new Error("emailId is not valid: " + value);
@@ -42,11 +45,7 @@ const userSchema = new mongoose.Schema(
     },
     gender: {
       type: String,
-      validate(value) {
-        if (!["male", "female", "others"].includes(value)) {
-          throw new Error("gender is not valid");
-        }
-      },
+      enum: ["male", "female", "others"], // cleaner than manual validate
     },
     skills: {
       type: [String],
@@ -56,6 +55,20 @@ const userSchema = new mongoose.Schema(
         }
       },
     },
+    // ✅ New fields
+    photoUrl: {
+      type: String,
+      validate(value) {
+        if (value && !validator.isURL(value)) {
+          throw new Error("photoUrl must be a valid URL");
+        }
+      },
+    },
+    about: {
+      type: String,
+      maxlength: 500, // limit text length
+      trim: true,
+    },
   },
   { timestamps: true }
 );
@@ -63,17 +76,14 @@ const userSchema = new mongoose.Schema(
 // JWT method (sync)
 userSchema.methods.getJWT = function () {
   const user = this;
-  const token = jwt.sign({ _id: user._id }, "vansh@123", {
+  return jwt.sign({ _id: user._id }, "vansh@123", {
     expiresIn: "7d",
   });
-  return token;
 };
 
 // Password validation
 userSchema.methods.validatePassword = async function (passwordInputByUser) {
-  const user = this;
-  const passwordHash = user.password;
-  return await bcrypt.compare(passwordInputByUser, passwordHash);
+  return await bcrypt.compare(passwordInputByUser, this.password);
 };
 
 module.exports = mongoose.model("user", userSchema);

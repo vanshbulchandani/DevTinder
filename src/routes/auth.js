@@ -24,12 +24,16 @@ authRouter.post("/signup", async (req, res) => {
       password: passwordhash,
     });
 
-    await newUser.save(); // ✅ This is what actually stores user in MongoDB
+    const savedUser = await newUser.save();
+    const token = await savedUser.getJWT();
 
-    res.send("user created");
+    res.cookie("token", token, {
+      expires: new Date(Date.now() + 8 * 3600000),
+    });
+
+    res.json({ message: "User Added successfully!", data: savedUser });
   } catch (err) {
-    console.log(err);
-    res.status(500).send("error creating user");
+    res.status(400).send("ERROR : " + err.message);
   }
 });
 
@@ -56,7 +60,7 @@ authRouter.post("/login", async (req, res) => {
         secure: false, // true in production with HTTPS
         sameSite: "lax",
       });
-      res.send("Login successful");
+      res.send(existingUser);
     }
   } catch (err) {
     console.log(err);
